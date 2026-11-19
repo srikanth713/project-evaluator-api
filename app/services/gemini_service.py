@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import re
 from typing import Any
 
@@ -65,6 +67,10 @@ OUTPUT JSON SCHEMA (all keys required; lists contain 2-6 concise strings, each u
                           "recommended_mentor_profile": string}
 }
 """
+
+
+logger = logging.getLogger("project_evaluator.gemini")
+RETRY_STATUSES = {500, 502, 503, 504}
 
 
 class GeminiService:
@@ -137,19 +143,39 @@ class GeminiService:
         url = f"{s.gemini_base_url}/models/{s.gemini_model}:generateContent"
         headers = {"x-goog-api-key": s.gemini_api_key, "Content-Type": "application/json"}
 
-        try:
-            async with httpx.AsyncClient(timeout=s.gemini_timeout_seconds, transport=self._transport) as client:
-                resp = await client.post(url, json=body, headers=headers)
-        except httpx.TimeoutException as exc:
-            raise AppError(504, "AI_TIMEOUT", "The AI service timed out. Please try again.") from exc
-        except httpx.RequestError as exc:
-            raise AppError(502, "AI_UNREACHABLE", "Could not reach the AI service. Please try again later.") from exc
+        resp = None
+        for attempt in range(2):  # one automatic retry for temporary Gemini overload
+            try:
+                async with httpx.AsyncClient(timeout=s.gemini_timeout_seconds, transport=self._transport) as client:
+                    resp = await client.post(url, json=body, headers=headers)
+            except httpx.TimeoutException as exc:
+                raise AppError(504, "AI_TIMEOUT", "The AI service timed out. Please try again.") from exc
+            except httpx.RequestError as exc:
+                raise AppError(502, "AI_UNREACHABLE", "Could not reach the AI service. Please try again later.") from exc
+            if resp.status_code == 200:
+                break
+            self._log_upstream_error(resp, s.gemini_model)
+            if resp.status_code in RETRY_STATUSES and attempt == 0:
+                await asyncio.sleep(3)
+                continue
+            break
 
         self._raise_for_status(resp)
         text = self._extract_text(resp)
         return self.parse_analysis(text)
 
     # --------------------------------------------------------------- helpers
+
+    @staticmethod
+    def _log_upstream_error(resp: httpx.Response, model: str) -> None:
+        """Log Gemini's status and error label (never the key or request body) to help debugging."""
+        label = ""
+        try:
+            err = resp.json().get("error", {})
+            label = f"{err.get('status', '')}: {str(err.get('message', ''))[:200]}"
+        except (ValueError, AttributeError):
+            pass
+        logger.warning("Gemini returned HTTP %s for model %s. %s", resp.status_code, model, label)
 
     @staticmethod
     def _raise_for_status(resp: httpx.Response) -> None:
