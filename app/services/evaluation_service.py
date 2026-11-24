@@ -42,14 +42,9 @@ class EvaluationService:
 
         response = EvaluationResponse(
             project_id=str(uuid.uuid4()),
-            project_title=request.project_title,
             # Always computed server-side from the five 0-20 sub-scores (never trusted from the AI).
             score=ai.score_breakdown.total,
-            implementation=ai.implementation,
-            plus=ai.plus,
-            minus=ai.minus,
             improvements=ai.improvements,
-            mentor_requirements=ai.mentor_requirements,
         )
         await self._store.save(
             response.project_id,

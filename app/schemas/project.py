@@ -8,9 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.utils.validators import clean_text, normalize_github_url
 
-MAX_ITEMS = 3          # max points per list
-MAX_ITEM_CHARS = 300   # max characters per point
-MAX_SKILLS = 8
+MAX_ITEMS = 3          # max improvements returned
+MAX_ITEM_CHARS = 200   # max characters per improvement
 
 
 class EvaluationRequest(BaseModel):
@@ -92,29 +91,15 @@ class ScoreBreakdown(BaseModel):
         )
 
 
-class MentorRequirements(BaseModel):
-    domain: str = Field(min_length=1, max_length=100)
-    required_skills: list[str] = Field(min_length=1)
-
-    @field_validator("required_skills", mode="before")
-    @classmethod
-    def _skills(cls, v: Any) -> Any:
-        return _clean_str_list(v, MAX_SKILLS)
-
-
 class AIAnalysis(BaseModel):
     """The structure Gemini must return. Validated before being trusted."""
 
-    implementation: str = Field(min_length=1, max_length=800)
-    plus: list[str] = Field(default_factory=list)
-    minus: list[str] = Field(default_factory=list)
-    improvements: list[str] = Field(default_factory=list)
+    improvements: list[str] = Field(min_length=1)
     score_breakdown: ScoreBreakdown
-    mentor_requirements: MentorRequirements
 
-    @field_validator("plus", "minus", "improvements", mode="before")
+    @field_validator("improvements", mode="before")
     @classmethod
-    def _lists(cls, v: Any) -> Any:
+    def _improvements(cls, v: Any) -> Any:
         return _clean_str_list(v)
 
 
@@ -124,13 +109,8 @@ class AIAnalysis(BaseModel):
 class EvaluationResponse(BaseModel):
     success: bool = True
     project_id: str
-    project_title: str
     score: int = Field(ge=0, le=100)
-    implementation: str
-    plus: list[str]
-    minus: list[str]
     improvements: list[str]
-    mentor_requirements: MentorRequirements
 
 
 class ErrorDetail(BaseModel):

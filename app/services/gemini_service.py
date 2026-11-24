@@ -34,10 +34,6 @@ EVALUATION RULES:
   is correct, bug-free or secure; flag *potential* concerns only.
 - If no source files were available, say so and keep implementation/maintainability scores conservative.
 - Technologies the student listed but you found no evidence of should be mentioned as unverified.
-- Detect the domain (e.g. "Machine Learning", "Web Development", "Android Development", "Mobile Development",
-  "IoT / Embedded", "Cybersecurity", "Data Science", "Blockchain", "Game Development", "DevOps", "Other").
-- Mentor requirements are CRITERIA only (domain + skills + a one-sentence profile description).
-  Never invent people, names, companies or profiles.
 
 SCORING RUBRIC (integers, each 0-20; the server computes the total):
 - organization: folder structure, separation of concerns, config/dependency management.
@@ -49,13 +45,10 @@ Typical student projects score 8-15 per category; reserve 17+ for clearly excell
 
 OUTPUT JSON SCHEMA (all keys required; output ONLY this JSON):
 {
-  "implementation": string,   // 2-3 short sentences: how the project is built (stack, structure, quality of the implementation)
-  "plus": [string],           // exactly 3 strengths, one short sentence each (under 200 characters)
-  "minus": [string],          // exactly 3 weaknesses or risks, one short sentence each
-  "improvements": [string],   // exactly 3 concrete improvements, one short sentence each
+  "improvements": [string],   // exactly 3 concrete, project-specific improvements, most important first;
+                              // each is ONE short sentence of at most 15 words
   "score_breakdown": {"organization": int, "implementation": int, "documentation": int,
-                      "maintainability": int, "innovation": int},
-  "mentor_requirements": {"domain": string, "required_skills": [string]}   // 3-6 skills
+                      "maintainability": int, "innovation": int}
 }
 """
 
