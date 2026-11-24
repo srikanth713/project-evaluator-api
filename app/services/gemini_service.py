@@ -47,24 +47,15 @@ SCORING RUBRIC (integers, each 0-20; the server computes the total):
 - innovation: originality, problem relevance, ambition beyond a tutorial clone.
 Typical student projects score 8-15 per category; reserve 17+ for clearly excellent evidence.
 
-OUTPUT JSON SCHEMA (all keys required; lists contain 2-6 concise strings, each under 400 characters):
+OUTPUT JSON SCHEMA (all keys required; output ONLY this JSON):
 {
-  "detected_domain": string,
-  "technologies_identified": [string],
-  "programming_languages": [string],
-  "strengths": [string],
-  "weaknesses": [string],
-  "improvement_suggestions": [string],
-  "documentation_feedback": [string],
-  "architecture_suggestions": [string],
-  "security_concerns": [string],
-  "next_steps": [string],
-  "additional_features": [string],
+  "implementation": string,   // 2-3 short sentences: how the project is built (stack, structure, quality of the implementation)
+  "plus": [string],           // exactly 3 strengths, one short sentence each (under 200 characters)
+  "minus": [string],          // exactly 3 weaknesses or risks, one short sentence each
+  "improvements": [string],   // exactly 3 concrete improvements, one short sentence each
   "score_breakdown": {"organization": int, "implementation": int, "documentation": int,
                       "maintainability": int, "innovation": int},
-  "score_explanation": string,
-  "mentor_requirements": {"domain": string, "required_skills": [string],
-                          "recommended_mentor_profile": string}
+  "mentor_requirements": {"domain": string, "required_skills": [string]}   // 3-6 skills
 }
 """
 

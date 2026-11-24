@@ -1,16 +1,16 @@
-"""Pydantic models for requests, AI output and API responses."""
+"""Pydantic models for requests, AI output and API responses (compact format)."""
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.utils.validators import clean_text, normalize_github_url
 
-MAX_LIST_ITEMS = 10
-MAX_ITEM_CHARS = 600
+MAX_ITEMS = 3          # max points per list
+MAX_ITEM_CHARS = 300   # max characters per point
+MAX_SKILLS = 8
 
 
 class EvaluationRequest(BaseModel):
@@ -58,7 +58,7 @@ class EvaluationRequest(BaseModel):
 # ----------------------------- AI output ----------------------------------
 
 
-def _clean_str_list(v: Any) -> Any:
+def _clean_str_list(v: Any, limit: int = MAX_ITEMS) -> Any:
     if v is None:
         return []
     if isinstance(v, str):
@@ -69,10 +69,12 @@ def _clean_str_list(v: Any) -> Any:
     for item in v:
         if isinstance(item, str) and item.strip():
             out.append(item.strip()[:MAX_ITEM_CHARS])
-    return out[:MAX_LIST_ITEMS]
+    return out[:limit]
 
 
 class ScoreBreakdown(BaseModel):
+    """Internal sub-scores. The API sums them into the single `score` it returns."""
+
     organization: int = Field(ge=0, le=20)
     implementation: int = Field(ge=0, le=20)
     documentation: int = Field(ge=0, le=20)
@@ -90,48 +92,27 @@ class ScoreBreakdown(BaseModel):
         )
 
 
-class AIMentorRequirements(BaseModel):
+class MentorRequirements(BaseModel):
     domain: str = Field(min_length=1, max_length=100)
     required_skills: list[str] = Field(min_length=1)
-    recommended_mentor_profile: str = Field(default="", max_length=500)
 
     @field_validator("required_skills", mode="before")
     @classmethod
     def _skills(cls, v: Any) -> Any:
-        return _clean_str_list(v)[:10]
+        return _clean_str_list(v, MAX_SKILLS)
 
 
 class AIAnalysis(BaseModel):
     """The structure Gemini must return. Validated before being trusted."""
 
-    detected_domain: str = Field(min_length=1, max_length=100)
-    technologies_identified: list[str] = Field(default_factory=list)
-    programming_languages: list[str] = Field(default_factory=list)
-    strengths: list[str] = Field(default_factory=list)
-    weaknesses: list[str] = Field(default_factory=list)
-    improvement_suggestions: list[str] = Field(default_factory=list)
-    documentation_feedback: list[str] = Field(default_factory=list)
-    architecture_suggestions: list[str] = Field(default_factory=list)
-    security_concerns: list[str] = Field(default_factory=list)
-    next_steps: list[str] = Field(default_factory=list)
-    additional_features: list[str] = Field(default_factory=list)
+    implementation: str = Field(min_length=1, max_length=800)
+    plus: list[str] = Field(default_factory=list)
+    minus: list[str] = Field(default_factory=list)
+    improvements: list[str] = Field(default_factory=list)
     score_breakdown: ScoreBreakdown
-    score_explanation: str = Field(min_length=1, max_length=2000)
-    mentor_requirements: AIMentorRequirements
+    mentor_requirements: MentorRequirements
 
-    @field_validator(
-        "technologies_identified",
-        "programming_languages",
-        "strengths",
-        "weaknesses",
-        "improvement_suggestions",
-        "documentation_feedback",
-        "architecture_suggestions",
-        "security_concerns",
-        "next_steps",
-        "additional_features",
-        mode="before",
-    )
+    @field_validator("plus", "minus", "improvements", mode="before")
     @classmethod
     def _lists(cls, v: Any) -> Any:
         return _clean_str_list(v)
@@ -140,61 +121,16 @@ class AIAnalysis(BaseModel):
 # ----------------------------- API response -------------------------------
 
 
-class Score(BaseModel):
-    total: int = Field(ge=0, le=100)
-    breakdown: ScoreBreakdown
-    explanation: str
-    criteria: dict[str, str]
-    limitations: str
-
-
-class MentorRequirements(BaseModel):
-    domain: str
-    required_skills: list[str]
-    recommended_mentor_profile: str
-
-
-class ProjectAnalysis(BaseModel):
-    project_title: str
-    detected_domain: str
-    technologies_identified: list[str]
-    programming_languages: list[str]
-    strengths: list[str]
-    weaknesses: list[str]
-    improvement_suggestions: list[str]
-    documentation_feedback: list[str]
-    architecture_suggestions: list[str]
-    security_concerns: list[str]
-    next_steps: list[str]
-    additional_features: list[str]
-    score: Score
-    mentor_requirements: MentorRequirements
-
-
-class RepositoryInfo(BaseModel):
-    full_name: str
-    url: str
-    default_branch: str
-    primary_language: str | None = None
-    languages: dict[str, float] = Field(default_factory=dict, description="Language -> percent of code")
-    stars: int = 0
-    last_pushed_at: str | None = None
-    has_readme: bool = False
-    has_tests: bool = False
-    has_license: bool = False
-    total_files: int = 0
-    files_analyzed: list[str] = Field(default_factory=list)
-    tree_truncated: bool = False
-
-
 class EvaluationResponse(BaseModel):
     success: bool = True
     project_id: str
-    student_id: str
-    evaluated_at: datetime
-    project_analysis: ProjectAnalysis
-    repository: RepositoryInfo
-    disclaimer: str
+    project_title: str
+    score: int = Field(ge=0, le=100)
+    implementation: str
+    plus: list[str]
+    minus: list[str]
+    improvements: list[str]
+    mentor_requirements: MentorRequirements
 
 
 class ErrorDetail(BaseModel):
